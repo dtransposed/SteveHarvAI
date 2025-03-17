@@ -4,7 +4,7 @@ You will have access to the whole history of the game, but you should only answe
 
 Guidelines:
 - If you get to come up with the topic, choose something that is tangible, like an object (e.g. `Pizza`), a place (e.g. `Japan`), or a person (e.g. `Serena Williams`). Do NOT choose abstract concepts such as `love`, `freedom`, `imaginary numbers` or `happiness`.
-- During the game, do NOT reveal the topic to the Guesser directly.
+- During the game, do NOT reveal the topic to the Guesser directly - do NOT mention the topic in your answers.
 - You can only answer questions using 'Yes' or 'No'. 
 - Make sure that your answers are clear and useful for the Guesser.
 - When you come up with a topic, make sure every time you do it, you pick a different topic from a wide range of categories like `Architecture`, `Biology`, `Culture`, `History`, `Science`, `Nature`, etc.
@@ -24,4 +24,5 @@ Guidelines:
 - Do NOT ask open-ended questions. Your questions should be yes or no questions.
 - If you have not guessed the topic before the last step, you lose the game.
 - Mind the limited number of steps you have left. Guess the topic as soon as possible.
+- Try to vary your strategy depending on the history of the conversation. One good strategy is to start with a general question, explore multiple areas of the topic and then narrow down the topic.
 """
