@@ -1,7 +1,8 @@
 import fire
-from agents import HostAgent, GuesserAgent
-from messages import StepMessage, UserMessage
+from custom_agents import HostAgent, GuesserAgent
+from messages import round_message
 import uuid
+from agents import trace
 from utils import setup_logger
 
 
@@ -20,55 +21,45 @@ def play_game(
         game_id = uuid.uuid4()
 
     logger = setup_logger(game_id)
-    host_agent = HostAgent(topic=topic)
-    guesser_agent = GuesserAgent()
-    for step in range(max_num_rounds):
-        if step == 0:
-            logger.info(f"Let's play the game of {max_num_rounds} questions!")
-            logger.info(
-                f"Host: Psst...The Guesser doesn't know this, but I can reveal that the topic is {host_agent.topic}"
+    logger.info(f"Let's play the game of {max_num_rounds} questions!")
+    host_agent = HostAgent(topic=topic, logger=logger)
+    guesser_agent = GuesserAgent(logger=logger)
+
+    with trace(f"game-{game_id}"):
+        for step in range(max_num_rounds):
+            logger.info("----------------------------------------")
+            logger.info(f"Step {step} of the game")
+
+            guesser_agent.messages.append(
+                {
+                    "role": "user",
+                    "content": round_message.format(
+                        round_number=step, max_num_rounds=max_num_rounds
+                    ),
+                }
             )
+            question, topic_proposal = guesser_agent.generate_question()
+            if topic_proposal is not None:
+                # Host optionally validates the topic proposal
+                is_correct = host_agent.validate_topic_proposal(topic_proposal)
+                if is_correct:
+                    logger.info(f"Guesser wins! The topic is {host_agent.topic}")
+                    return True, host_agent.topic
+                else:
+                    logger.info(f"Host: {topic_proposal} is not correct. Try again.")
+                    guesser_agent.acknowledge_bad_topic_proposal(topic_proposal)
 
-        logger.info("----------------------------------------")
-        logger.info(f"Step {step} of the game")
+            logger.info(f"Guesser: {question}")
 
-        # inform both agents about the current step
-        # not very important for the Host,
-        # but super important for the Guesser
-        step_message = StepMessage(step=step)
-        host_agent.add_message(step_message)
-        guesser_agent.add_message(step_message)
+            # Host actions
+            answer = host_agent.generate_answer(question)
+            logger.info(f"Host: {answer}")
+            guesser_agent.acknowledge_answer(question, answer)
 
-        # Guesser actions
-        reasoning, question, topic_proposal = guesser_agent.generate_question()
-        logger.info(f"Guesser (internal dialogue): {reasoning}")
-        logger.info(f"Guesser: (topic proposal): {topic_proposal}")
-
-        if topic_proposal is not None:
-            # Host optionally validates the topic proposal
-            reasoning, is_correct = host_agent.validate_topic_proposal(topic_proposal)
-            logger.info(f"Host (internal dialogue on topic proposal): {reasoning}")
-            if is_correct:
-                logger.info(
-                    f"Host: Yes, that's correct! The Guesser's topic proposal: {topic_proposal} matches the topic: {host_agent.topic}"
-                )
-                return True, host_agent.topic
-
-        logger.info(f"Guesser: {question}")
-        # communication Guesser -> Host
-        host_agent.add_message(UserMessage(content=f"Guesser: {question}"))
-
-        # Host actions
-        reasoning, answer = host_agent.generate_answer()
-        logger.info(f"Host (internal dialogue): {reasoning}")
-        logger.info(f"Host: {answer}")
-        # communication Host -> Guesser
-        guesser_agent.add_message(UserMessage(content=f"Host: {answer}"))
-
-    logger.info(
-        f"The Guesser has not guessed the topic in {step + 1} steps. The Guesser loses!"
-    )
-    return False, host_agent.topic
+        logger.info(
+            f"The Guesser has not guessed the topic in {step + 1} steps. The Guesser loses!"
+        )
+        return False, host_agent.topic
 
 
 if __name__ == "__main__":
