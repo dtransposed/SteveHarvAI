@@ -1,8 +1,8 @@
 import fire
 from custom_agents import HostAgent, GuesserAgent
-from agents import Runner
 from messages import round_message
 import uuid
+from agents import trace
 from utils import setup_logger
 
 
@@ -24,39 +24,42 @@ def play_game(
     logger.info(f"Let's play the game of {max_num_rounds} questions!")
     host_agent = HostAgent(topic=topic, logger=logger)
     guesser_agent = GuesserAgent(logger=logger)
-    # add trace
-    # add guardrails # final_output = result.final_output_as(HomeworkOutput)
-    # handoffs=[history_tutor_agent, math_tutor_agent],
-    # proper loop
-    for step in range(max_num_rounds):
-        logger.info("----------------------------------------")
-        logger.info(f"Step {step} of the game")
 
-        # # inform both agents about the current step
-        # # not very important for the Host,
-        # # but super important for the Guesser
-        host_agent.messages.append({"role": "user", "content": round_message.format(round_number=step, max_num_rounds=max_num_rounds)})
-        guesser_agent.messages.append({"role": "user", "content": round_message.format(round_number=step, max_num_rounds=max_num_rounds)})
+    with trace(f"game-{game_id}"):
+        for step in range(max_num_rounds):
+            logger.info("----------------------------------------")
+            logger.info(f"Step {step} of the game")
 
-        # Guesser actions
-        question, topic_proposal = guesser_agent.generate_question()
-        if topic_proposal is not None:
-            # Host optionally validates the topic proposal
-            is_correct = host_agent.validate_topic_proposal(topic_proposal)
-            if is_correct:
-                return True, host_agent.topic
+            guesser_agent.messages.append(
+                {
+                    "role": "user",
+                    "content": round_message.format(
+                        round_number=step, max_num_rounds=max_num_rounds
+                    ),
+                }
+            )
+            question, topic_proposal = guesser_agent.generate_question()
+            if topic_proposal is not None:
+                # Host optionally validates the topic proposal
+                is_correct = host_agent.validate_topic_proposal(topic_proposal)
+                if is_correct:
+                    logger.info(f"Guesser wins! The topic is {host_agent.topic}")
+                    return True, host_agent.topic
+                else:
+                    logger.info(f"Host: {topic_proposal} is not correct. Try again.")
+                    guesser_agent.acknowledge_bad_topic_proposal(topic_proposal)
 
-        logger.info(f"Guesser: {question}")
+            logger.info(f"Guesser: {question}")
 
-        # Host actions
-        answer = host_agent.generate_answer(question)
-        logger.info(f"Host: {answer}")
-        guesser_agent.acknowledge_answer(question, answer)
+            # Host actions
+            answer = host_agent.generate_answer(question)
+            logger.info(f"Host: {answer}")
+            guesser_agent.acknowledge_answer(question, answer)
 
-    logger.info(
-        f"The Guesser has not guessed the topic in {step + 1} steps. The Guesser loses!"
-    )
-    return False, host_agent.topic
+        logger.info(
+            f"The Guesser has not guessed the topic in {step + 1} steps. The Guesser loses!"
+        )
+        return False, host_agent.topic
 
 
 if __name__ == "__main__":
